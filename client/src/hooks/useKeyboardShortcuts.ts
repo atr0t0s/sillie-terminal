@@ -5,6 +5,8 @@ interface Actions {
   closeTab: () => void;
   selectTab: (index: number) => void;
   clearTerminal: () => void;
+  splitHorizontal: () => void;
+  splitVertical: () => void;
 }
 
 export function useKeyboardShortcuts(actions: Actions) {
@@ -24,6 +26,14 @@ export function useKeyboardShortcuts(actions: Actions) {
         case 'k':
           e.preventDefault();
           actions.clearTerminal();
+          break;
+        case 'd':
+          e.preventDefault();
+          if (e.shiftKey) {
+            actions.splitVertical();
+          } else {
+            actions.splitHorizontal();
+          }
           break;
         default:
           if (e.key >= '1' && e.key <= '9') {
