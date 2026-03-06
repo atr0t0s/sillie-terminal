@@ -4,3 +4,4 @@ client/node_modules/
 .DS_Store
 *.log
 .env
+docs/plans/
