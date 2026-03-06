@@ -10,9 +10,23 @@ switch (command) {
     const cfg = config.load();
     launchd.install();
     const url = `http://127.0.0.1:${cfg.port}/?token=${cfg.token}`;
-    execSync(`open "${url}"`);
     console.log('Sillie installed. Opens automatically on login.');
-    console.log(`URL: ${url}`);
+    console.log('Waiting for server...');
+    const http = require('node:http');
+    const waitForServer = (attempts = 0) => {
+      if (attempts > 30) {
+        console.log('Server did not start in time. Try: sillie open');
+        return;
+      }
+      const req = http.get(`http://127.0.0.1:${cfg.port}/?token=${cfg.token}`, (res) => {
+        res.resume();
+        execSync(`open "${url}"`);
+        console.log(`URL: ${url}`);
+      });
+      req.on('error', () => setTimeout(() => waitForServer(attempts + 1), 200));
+      req.setTimeout(500, () => { req.destroy(); setTimeout(() => waitForServer(attempts + 1), 200); });
+    };
+    waitForServer();
     break;
   }
   case 'uninstall':

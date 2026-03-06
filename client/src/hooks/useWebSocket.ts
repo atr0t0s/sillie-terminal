@@ -8,6 +8,7 @@ export function useWebSocket(onMessage: MessageHandler) {
   handlersRef.current = onMessage;
   const [connected, setConnected] = useState(false);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>();
+  const retryDelay = useRef(100);
 
   const connect = useCallback(() => {
     const params = new URLSearchParams(window.location.search);
@@ -18,7 +19,10 @@ export function useWebSocket(onMessage: MessageHandler) {
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
-    ws.onopen = () => setConnected(true);
+    ws.onopen = () => {
+      retryDelay.current = 100;
+      setConnected(true);
+    };
 
     ws.onmessage = (event) => {
       try {
@@ -29,10 +33,11 @@ export function useWebSocket(onMessage: MessageHandler) {
 
     ws.onclose = () => {
       setConnected(false);
-      // Auto-reconnect after 2s
+      const delay = retryDelay.current;
+      retryDelay.current = Math.min(delay * 2, 5000);
       reconnectTimer.current = setTimeout(() => {
         connect();
-      }, 2000);
+      }, delay);
     };
 
     ws.onerror = () => {
