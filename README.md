@@ -13,6 +13,7 @@ Sometimes you want a terminal that lives in a browser tab. Maybe you're on a mac
 - WebGL-accelerated rendering, ligatures, image protocol support, clickable links
 - Find-in-terminal search
 - 8 built-in color themes (Tokyo Night, Dracula, Catppuccin Mocha, Gruvbox, Nord, Kanagawa, Solarized Dark, One Dark)
+- Command palette (Ctrl+Shift+P) with fuzzy search - quickly find and run any action or switch themes
 - Broadcast mode - type in one pane, input goes to all panes in the tab
 - Session persistence - disconnect and reconnect without losing scrollback
 - Token-based auth so it's not just open on localhost
@@ -53,6 +54,7 @@ All shortcuts use `Ctrl+Shift` to avoid stepping on terminal sequences (Ctrl+C, 
 
 | Shortcut | Action |
 |---|---|
+| Ctrl+Shift+P | Command palette |
 | Ctrl+Shift+T | New tab |
 | Ctrl+Shift+W | Close tab |
 | Ctrl+Shift+1-9 | Switch to tab N |
