@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 
 type MessageHandler = (msg: any) => void;
 
@@ -6,8 +6,10 @@ export function useWebSocket(onMessage: MessageHandler) {
   const wsRef = useRef<WebSocket | null>(null);
   const handlersRef = useRef(onMessage);
   handlersRef.current = onMessage;
+  const [connected, setConnected] = useState(false);
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout>>();
 
-  useEffect(() => {
+  const connect = useCallback(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token') || '';
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -15,6 +17,8 @@ export function useWebSocket(onMessage: MessageHandler) {
 
     const ws = new WebSocket(url);
     wsRef.current = ws;
+
+    ws.onopen = () => setConnected(true);
 
     ws.onmessage = (event) => {
       try {
@@ -24,11 +28,25 @@ export function useWebSocket(onMessage: MessageHandler) {
     };
 
     ws.onclose = () => {
-      setTimeout(() => { wsRef.current = null; }, 1000);
+      setConnected(false);
+      // Auto-reconnect after 2s
+      reconnectTimer.current = setTimeout(() => {
+        connect();
+      }, 2000);
     };
 
-    return () => { ws.close(); };
+    ws.onerror = () => {
+      ws.close();
+    };
   }, []);
+
+  useEffect(() => {
+    connect();
+    return () => {
+      clearTimeout(reconnectTimer.current);
+      wsRef.current?.close();
+    };
+  }, [connect]);
 
   const send = useCallback((msg: object) => {
     const ws = wsRef.current;
@@ -37,5 +55,5 @@ export function useWebSocket(onMessage: MessageHandler) {
     }
   }, []);
 
-  return { send };
+  return { send, connected };
 }

@@ -21,7 +21,8 @@ export default function TabBar({ tabs, activeTabId, onSelect, onClose, onNew }: 
       paddingLeft: 8,
       gap: 2,
       userSelect: 'none',
-    }}>
+      WebkitAppRegion: 'drag',
+    } as React.CSSProperties}>
       <button
         onClick={onNew}
         style={{
@@ -31,7 +32,8 @@ export default function TabBar({ tabs, activeTabId, onSelect, onClose, onNew }: 
           fontSize: 18,
           cursor: 'pointer',
           padding: '4px 8px',
-        }}
+          WebkitAppRegion: 'no-drag',
+        } as React.CSSProperties}
       >+</button>
       {tabs.map((tab) => (
         <div
@@ -47,13 +49,19 @@ export default function TabBar({ tabs, activeTabId, onSelect, onClose, onNew }: 
             borderRadius: '6px 6px 0 0',
             cursor: 'pointer',
             fontSize: 13,
-          }}
+            maxWidth: 180,
+            WebkitAppRegion: 'no-drag',
+          } as React.CSSProperties}
         >
-          <span>{tab.title}</span>
+          <span style={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}>{tab.title}</span>
           {tabs.length > 1 && (
             <span
               onClick={(e) => { e.stopPropagation(); onClose(tab.id); }}
-              style={{ cursor: 'pointer', opacity: 0.5, fontSize: 11 }}
+              style={{ cursor: 'pointer', opacity: 0.5, fontSize: 11, flexShrink: 0 }}
             >x</span>
           )}
         </div>

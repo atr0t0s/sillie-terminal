@@ -2,42 +2,75 @@ const pty = require('node-pty');
 const os = require('node:os');
 
 const sessions = new Map();
+const MAX_SCROLLBACK = 50_000; // chars to keep for reconnection
 
-function create(id, { cols = 80, rows = 24, shell, onData, onExit } = {}) {
-  if (sessions.has(id)) return sessions.get(id);
+function create(id, { cols = 80, rows = 24, shell, cwd, env, onData, onExit } = {}) {
+  if (sessions.has(id)) {
+    const existing = sessions.get(id);
+    // Reconnect: replay scrollback buffer
+    if (onData && existing.scrollback) {
+      onData(existing.scrollback);
+    }
+    // Update callbacks for reconnection
+    if (onData) existing._onData = onData;
+    if (onExit) existing._onExit = onExit;
+    return existing.proc;
+  }
 
   const shellPath = shell || process.env.SHELL || '/bin/zsh';
   const proc = pty.spawn(shellPath, [], {
     name: 'xterm-256color',
     cols,
     rows,
-    cwd: os.homedir(),
-    env: { ...process.env, TERM: 'xterm-256color' },
+    cwd: cwd || os.homedir(),
+    env: env || { ...process.env, TERM: 'xterm-256color' },
   });
 
-  if (onData) proc.onData(onData);
-  if (onExit) proc.onExit(onExit);
+  const session = {
+    proc,
+    scrollback: '',
+    _onData: onData,
+    _onExit: onExit,
+    createdAt: Date.now(),
+  };
 
-  sessions.set(id, proc);
+  proc.onData((data) => {
+    // Accumulate scrollback
+    session.scrollback += data;
+    if (session.scrollback.length > MAX_SCROLLBACK) {
+      session.scrollback = session.scrollback.slice(-MAX_SCROLLBACK);
+    }
+    if (session._onData) session._onData(data);
+  });
+
+  proc.onExit((info) => {
+    if (session._onExit) session._onExit(info);
+    sessions.delete(id);
+  });
+
+  sessions.set(id, session);
   return proc;
 }
 
-function get(id) { return sessions.get(id); }
+function get(id) {
+  const s = sessions.get(id);
+  return s ? s.proc : undefined;
+}
 
 function write(id, data) {
-  const proc = sessions.get(id);
-  if (proc) proc.write(data);
+  const s = sessions.get(id);
+  if (s) s.proc.write(data);
 }
 
 function resize(id, cols, rows) {
-  const proc = sessions.get(id);
-  if (proc) proc.resize(cols, rows);
+  const s = sessions.get(id);
+  if (s) s.proc.resize(cols, rows);
 }
 
 function close(id) {
-  const proc = sessions.get(id);
-  if (proc) {
-    proc.kill();
+  const s = sessions.get(id);
+  if (s) {
+    s.proc.kill();
     sessions.delete(id);
   }
 }
@@ -48,4 +81,13 @@ function closeAll() {
   for (const [id] of sessions) close(id);
 }
 
-module.exports = { create, get, write, resize, close, listIds, closeAll };
+// Detach callbacks (for WS disconnect without killing the PTY)
+function detach(id) {
+  const s = sessions.get(id);
+  if (s) {
+    s._onData = null;
+    s._onExit = null;
+  }
+}
+
+module.exports = { create, get, write, resize, close, listIds, closeAll, detach };

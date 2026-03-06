@@ -7,7 +7,14 @@ const ptyManager = require('./pty-manager');
 
 function createServer(cfg) {
   const app = express();
+  app.use(express.json());
 
+  const clientDist = path.join(__dirname, '..', 'client', 'dist');
+
+  // Serve static assets without auth (JS, CSS, fonts, images)
+  app.use('/assets', express.static(path.join(clientDist, 'assets')));
+
+  // Auth for everything else
   app.use((req, res, next) => {
     if (auth.validateRequest(req.url, cfg.token)) {
       next();
@@ -16,7 +23,32 @@ function createServer(cfg) {
     }
   });
 
-  const clientDist = path.join(__dirname, '..', 'client', 'dist');
+  // Settings API
+  app.get('/api/settings', (req, res) => {
+    const config = require('./config');
+    const currentCfg = config.load();
+    res.json({
+      theme: currentCfg.theme || {},
+      shell: currentCfg.shell,
+      fontSize: currentCfg.fontSize || 14,
+      fontFamily: currentCfg.fontFamily || 'monospace',
+    });
+  });
+
+  app.put('/api/settings', (req, res) => {
+    const config = require('./config');
+    const currentCfg = config.load();
+    const updates = req.body;
+    const newCfg = { ...currentCfg, ...updates };
+    config.save(newCfg);
+    res.json({ ok: true });
+  });
+
+  // List active PTY sessions (for reconnection)
+  app.get('/api/sessions', (req, res) => {
+    res.json({ sessions: ptyManager.listIds() });
+  });
+
   app.use(express.static(clientDist));
   app.get('/{*splat}', (req, res) => {
     res.sendFile(path.join(clientDist, 'index.html'));
@@ -37,12 +69,15 @@ function createServer(cfg) {
   });
 
   wss.on('connection', (ws) => {
+    const ownedSessions = new Set();
+
     ws.on('message', (raw) => {
       let msg;
       try { msg = JSON.parse(raw.toString()); } catch { return; }
 
       switch (msg.type) {
         case 'create':
+          ownedSessions.add(msg.id);
           ptyManager.create(msg.id, {
             cols: msg.cols || 80,
             rows: msg.rows || 24,
@@ -54,7 +89,7 @@ function createServer(cfg) {
             onExit: ({ exitCode }) => {
               if (ws.readyState === ws.OPEN)
                 ws.send(JSON.stringify({ type: 'exit', id: msg.id, code: exitCode }));
-              ptyManager.close(msg.id);
+              ownedSessions.delete(msg.id);
             },
           });
           break;
@@ -66,7 +101,15 @@ function createServer(cfg) {
           break;
         case 'close':
           ptyManager.close(msg.id);
+          ownedSessions.delete(msg.id);
           break;
+      }
+    });
+
+    ws.on('close', () => {
+      // Detach rather than kill — allows reconnection
+      for (const id of ownedSessions) {
+        ptyManager.detach(id);
       }
     });
   });
