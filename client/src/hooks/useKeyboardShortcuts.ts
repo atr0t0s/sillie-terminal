@@ -13,6 +13,7 @@ interface Actions {
   toggleSearch: () => void;
   openSettings: () => void;
   toggleBroadcast: () => void;
+  togglePalette: () => void;
 }
 
 // All shortcuts use Ctrl+Shift to avoid conflicts with:
@@ -26,6 +27,10 @@ export function useKeyboardShortcuts(actions: Actions) {
       if (e.metaKey) return;
 
       switch (e.key) {
+        case 'P':
+          e.preventDefault();
+          actions.togglePalette();
+          break;
         case 'T':
           e.preventDefault();
           actions.newTab();

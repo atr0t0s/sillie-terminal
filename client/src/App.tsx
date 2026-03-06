@@ -5,10 +5,12 @@ import SplitPane from './components/SplitPane';
 import SearchBar from './components/SearchBar';
 import ContextMenu from './components/ContextMenu';
 import SettingsModal from './components/SettingsModal';
+import CommandPalette from './components/CommandPalette';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useNotifications } from './hooks/useNotifications';
-import { themes, defaultThemeName } from './themes';
+import { themes, themeNames, defaultThemeName } from './themes';
+import { Command } from './commands';
 
 let nextId = 1;
 function genId() { return `t${nextId++}`; }
@@ -88,6 +90,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   const termRefs = useRef<Map<string, React.RefObject<TerminalHandle | null>>>(new Map());
   const { recordOutput, clearActivity } = useNotifications(activeTabId);
@@ -275,9 +278,80 @@ export default function App() {
         return next;
       });
     },
+    togglePalette: () => setPaletteOpen((v) => !v),
   }), [addTab, closeTab, focusedPaneId, splitPane, paneTree]);
 
   useKeyboardShortcuts(shortcuts);
+
+  const commands = useMemo((): Command[] => {
+    const cmds: Command[] = [
+      { id: 'new-tab', label: 'New Tab', shortcut: 'Ctrl+Shift+T', action: addTab, category: 'Tabs' },
+      { id: 'close-tab', label: 'Close Tab', shortcut: 'Ctrl+Shift+W', action: () => closeTab(), category: 'Tabs' },
+      { id: 'split-down', label: 'Split Down', shortcut: 'Ctrl+Shift+D', action: () => splitPane('horizontal'), category: 'Panes' },
+      { id: 'split-right', label: 'Split Right', shortcut: 'Ctrl+Shift+E', action: () => splitPane('vertical'), category: 'Panes' },
+      { id: 'clear-terminal', label: 'Clear Terminal', shortcut: 'Ctrl+Shift+K', action: () => {
+        const ref = termRefs.current.get(focusedPaneId);
+        if (ref?.current) ref.current.clear();
+      }, category: 'Terminal' },
+      { id: 'find', label: 'Find in Terminal', shortcut: 'Ctrl+Shift+F', action: () => setSearchVisible((v) => !v), category: 'Terminal' },
+      { id: 'broadcast', label: 'Toggle Broadcast Mode', shortcut: 'Ctrl+Shift+B', action: () => {
+        setSettings((prev) => {
+          const next = { ...prev, broadcastInput: !prev.broadcastInput };
+          saveSettings(next);
+          return next;
+        });
+      }, category: 'Terminal' },
+      { id: 'zoom-in', label: 'Zoom In', shortcut: 'Ctrl+Shift+=', action: () => {
+        const ref = termRefs.current.get(focusedPaneId);
+        if (ref?.current) ref.current.zoomIn();
+      }, category: 'Appearance' },
+      { id: 'zoom-out', label: 'Zoom Out', shortcut: 'Ctrl+Shift+-', action: () => {
+        const ref = termRefs.current.get(focusedPaneId);
+        if (ref?.current) ref.current.zoomOut();
+      }, category: 'Appearance' },
+      { id: 'zoom-reset', label: 'Reset Zoom', shortcut: 'Ctrl+Shift+0', action: () => {
+        const ref = termRefs.current.get(focusedPaneId);
+        if (ref?.current) ref.current.resetZoom();
+      }, category: 'Appearance' },
+      { id: 'settings', label: 'Open Settings', shortcut: 'Ctrl+Shift+,', action: () => setSettingsOpen(true), category: 'Settings' },
+    ];
+
+    for (let i = 1; i <= 9; i++) {
+      cmds.push({
+        id: `tab-${i}`,
+        label: `Switch to Tab ${i}`,
+        shortcut: `Ctrl+Shift+${i}`,
+        action: () => {
+          setTabs((prev) => {
+            if (i - 1 < prev.length) {
+              setActiveTabId(prev[i - 1].id);
+              const tree = paneTree[prev[i - 1].id];
+              if (tree) setFocusedPaneId(findLeafIds(tree)[0]);
+            }
+            return prev;
+          });
+        },
+        category: 'Tabs',
+      });
+    }
+
+    for (const name of themeNames) {
+      cmds.push({
+        id: `theme-${name}`,
+        label: `Theme: ${name}`,
+        action: () => {
+          setSettings((prev) => {
+            const next = { ...prev, themeName: name };
+            saveSettings(next);
+            return next;
+          });
+        },
+        category: 'Appearance',
+      });
+    }
+
+    return cmds;
+  }, [addTab, closeTab, splitPane, focusedPaneId, paneTree]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -414,6 +488,13 @@ export default function App() {
           settings={settings}
           onSave={handleSettingsSave}
           onClose={() => setSettingsOpen(false)}
+        />
+      )}
+
+      {paletteOpen && (
+        <CommandPalette
+          commands={commands}
+          onClose={() => setPaletteOpen(false)}
         />
       )}
     </div>
