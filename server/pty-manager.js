@@ -18,12 +18,12 @@ function create(id, { cols = 80, rows = 24, shell, cwd, env, onData, onExit } = 
   }
 
   const shellPath = shell || process.env.SHELL || '/bin/zsh';
-  const proc = pty.spawn(shellPath, [], {
+  const proc = pty.spawn(shellPath, ['--login'], {
     name: 'xterm-256color',
     cols,
     rows,
     cwd: cwd || os.homedir(),
-    env: env || { ...process.env, TERM: 'xterm-256color' },
+    env: env || undefined,
   });
 
   const session = {

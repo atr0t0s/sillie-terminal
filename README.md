@@ -21,7 +21,7 @@ Sometimes you want a terminal that lives in a browser tab. Maybe you're on a mac
 ## Install
 
 ```
-npm install -g sillie
+npm install -g @atrotos/sillie
 ```
 
 Requires Node 18+. The `node-pty` dependency needs a C++ toolchain (Xcode command line tools on macOS).
