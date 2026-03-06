@@ -1,5 +1,5 @@
 {
-  "name": "sillie",
+  "name": "@atrotos/sillie",
   "version": "0.1.0",
   "description": "Terminal in your browser",
   "bin": {
