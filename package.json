@@ -9,8 +9,15 @@
     "dev:server": "node server/index.js",
     "dev:client": "cd client && npx vite",
     "build:client": "cd client && npx vite build",
-    "test": "node --test tests/**/*.test.js"
+    "test": "node --test tests/**/*.test.js",
+    "prepublishOnly": "cd client && npm install && npx vite build"
   },
+  "files": [
+    "bin/",
+    "server/",
+    "client/dist/",
+    "scripts/"
+  ],
   "engines": {
     "node": ">=18"
   },

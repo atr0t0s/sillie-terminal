@@ -1,0 +1,4 @@
+client/src/
+client/node_modules/
+tests/
+.DS_Store
